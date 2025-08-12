@@ -61,7 +61,7 @@ pub struct SpotifyId {
 pub enum SpotifyIdError {
     #[error("ID cannot be parsed")]
     InvalidId,
-    #[error("not a valid Spotify URI")]
+    #[error("not a valid Spotify ID")]
     InvalidFormat,
     #[error("URI does not belong to Spotify")]
     InvalidRoot,

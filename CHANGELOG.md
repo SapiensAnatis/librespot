@@ -18,11 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [connect] Replaced `SpircLoadCommand` with `LoadRequest`, `LoadRequestOptions` and `LoadContextOptions` (breaking)
 - [connect] Moved all public items to the highest level (breaking)
 - [connect] Replaced Mercury usage in `Spirc` with Dealer
+- [connect] Changed `track_id` parameter in `SpircTask::handle_unavailable` from `SpotifyId` to `&SpotifyUri` (breaking)
+- [connect] Changed return type of `ConnectState::preview_next_track` from `Option<SpotifyId>` to
+  `Option<SpotifyUri>` (breaking)
+- [connect] Changed type of `id` parameter `ConnectState::mark_unavailable` from `SpotifyId` to `&SpotifyUri` (breaking)
 - [metadata] Replaced `AudioFileFormat` with own enum. (breaking)
 - [playback] Changed trait `Mixer::open` to return `Result<Self, Error>` instead of `Self` (breaking)
 - [playback] Changed type alias `MixerFn` to return `Result<Arc<dyn Mixer>, Error>` instead of `Arc<dyn Mixer>` (breaking)
 - [playback] Optimize audio conversion to always dither at 16-bit level, and improve performance
 - [playback] Normalizer maintains better stereo imaging, while also being faster
+- [playback] Changed type of `SpotifyId` fields in `PlayerEvent` members to `SpotifyUri` (breaking)
 - [oauth] Remove loopback address requirement from `redirect_uri` when spawning callback handling server versus using stdin.
 
 ### Added
@@ -34,8 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [connect] Add and enforce rustdoc
 - [playback] Add `track` field to `PlayerEvent::RepeatChanged` (breaking)
 - [playback] Add `PlayerEvent::PositionChanged` event to notify about the current playback position
+- [playback] Add `load_uri()` function to load a `SpotifyUri`
+- [playback] Add `preload_uri()` function to load a `SpotifyUr
 - [core] Add `request_with_options` and `request_with_protobuf_and_options` to `SpClient`
 - [core] Add `try_get_urls` to `CdnUrl`
+- [core] Add `SpotifyUri` type to represent more types of URI than `SpotifyId` can
 - [oauth] Add `OAuthClient` and `OAuthClientBuilder` structs to achieve a more customizable login process
 
 ### Fixed
@@ -62,6 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [oauth] `get_access_token()` function marked for deprecation
 - [core] `try_get_url()` function marked for deprecation
+- [player] `load()` function marked for deprecation
+- [player] `preload()` function marked for deprecation
 
 ### Removed
 
