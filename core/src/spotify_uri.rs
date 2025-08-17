@@ -67,7 +67,7 @@ impl SpotifyUri {
             }
         };
 
-        let id = parts.next().ok_or(SpotifyUriError::InvalidFormat)?;
+        let name = parts.next().ok_or(SpotifyUriError::InvalidFormat)?;
 
         if scheme != "spotify" {
             return Err(SpotifyUriError::InvalidRoot.into());
@@ -81,8 +81,10 @@ impl SpotifyUri {
                 name: SpotifyResourceName::String("not implemented".to_owned()),
             }),
             _ => {
-                let mut id = SpotifyId::from_base62(id)?;
-                id.item_type = item_type;
+                let id = SpotifyId {
+                    item_type,
+                    ..SpotifyId::from_base62(name)?
+                };
 
                 Ok(Self {
                     item_type,
@@ -101,21 +103,12 @@ impl SpotifyUri {
     ///
     /// [Spotify URI]: https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids
     pub fn to_uri(&self) -> Result<String, Error> {
-        let item_type: &str = self.item_type.into();
-
         match self.name {
-            SpotifyResourceName::Id(id) => {
-                // 8 chars for the "spotify:" prefix + 1 colon + 22 chars base62 encoded ID  = 31
-                // + unknown size item_type.
-                let mut dst = String::with_capacity(31 + item_type.len());
-                dst.push_str("spotify:");
-                dst.push_str(item_type);
-                dst.push(':');
-                let base_62 = id.to_base62()?;
-                dst.push_str(&base_62);
-                Ok(dst)
+            SpotifyResourceName::Id(id) => Ok(id.to_uri()?),
+            SpotifyResourceName::String(ref s) => {
+                let item_type: &str = self.item_type.into();
+                Ok(format!("spotify:{item_type}:{s}"))
             }
-            SpotifyResourceName::String(ref s) => Ok(format!("spotify:{item_type}:{s}")),
         }
     }
 
@@ -126,10 +119,7 @@ impl SpotifyUri {
 
     pub fn to_name(&self) -> Result<String, Error> {
         match self.name {
-            SpotifyResourceName::Id(id) => {
-                let base_62 = id.to_base62()?;
-                Ok(base_62)
-            }
+            SpotifyResourceName::Id(id) => Ok(id.to_base62()?),
             SpotifyResourceName::String(ref s) => Ok(s.clone()),
         }
     }
