@@ -15,14 +15,14 @@ use crate::{
     video::VideoFiles,
 };
 
-use librespot_core::{Error, Session, SpotifyId, date::Date};
+use librespot_core::{Error, Session, SpotifyId, SpotifyUri, date::Date};
 
 use librespot_protocol as protocol;
 pub use protocol::metadata::episode::EpisodeType;
 
 #[derive(Debug, Clone)]
 pub struct Episode {
-    pub id: SpotifyId,
+    pub id: SpotifyUri,
     pub name: String,
     pub duration: i32,
     pub audio: AudioFiles,
@@ -49,19 +49,20 @@ pub struct Episode {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Episodes(pub Vec<SpotifyId>);
+pub struct Episodes(pub Vec<SpotifyUri>);
 
-impl_deref_wrapped!(Episodes, Vec<SpotifyId>);
+impl_deref_wrapped!(Episodes, Vec<SpotifyUri>);
 
 #[async_trait]
 impl Metadata for Episode {
     type Message = protocol::metadata::Episode;
 
-    async fn request(session: &Session, episode_id: &SpotifyId) -> RequestResult {
-        session.spclient().get_episode_metadata(episode_id).await
+    async fn request(session: &Session, episode_uri: &SpotifyUri) -> RequestResult {
+        let episode_id: SpotifyId = episode_uri.try_into()?;
+        session.spclient().get_episode_metadata(&episode_id).await
     }
 
-    fn parse(msg: &Self::Message, _: &SpotifyId) -> Result<Self, Error> {
+    fn parse(msg: &Self::Message, _: &SpotifyUri) -> Result<Self, Error> {
         Self::try_from(msg)
     }
 }

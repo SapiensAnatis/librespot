@@ -17,12 +17,12 @@ use crate::{
     util::{impl_deref_wrapped, impl_try_from_repeated},
 };
 
-use librespot_core::{Error, Session, SpotifyId, date::Date};
+use librespot_core::{Error, Session, SpotifyId, SpotifyUri, date::Date};
 use librespot_protocol as protocol;
 
 #[derive(Debug, Clone)]
 pub struct Track {
-    pub id: SpotifyId,
+    pub id: SpotifyUri,
     pub name: String,
     pub album: Album,
     pub artists: Artists,
@@ -50,19 +50,20 @@ pub struct Track {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Tracks(pub Vec<SpotifyId>);
+pub struct Tracks(pub Vec<SpotifyUri>);
 
-impl_deref_wrapped!(Tracks, Vec<SpotifyId>);
+impl_deref_wrapped!(Tracks, Vec<SpotifyUri>);
 
 #[async_trait]
 impl Metadata for Track {
     type Message = protocol::metadata::Track;
 
-    async fn request(session: &Session, track_id: &SpotifyId) -> RequestResult {
-        session.spclient().get_track_metadata(track_id).await
+    async fn request(session: &Session, track_uri: &SpotifyUri) -> RequestResult {
+        let track_id: SpotifyId = track_uri.try_into()?;
+        session.spclient().get_track_metadata(&track_id).await
     }
 
-    fn parse(msg: &Self::Message, _: &SpotifyId) -> Result<Self, Error> {
+    fn parse(msg: &Self::Message, _: &SpotifyUri) -> Result<Self, Error> {
         Self::try_from(msg)
     }
 }

@@ -15,16 +15,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures_util::{
-    StreamExt, TryFutureExt, future, future::FusedFuture,
-    stream::futures_unordered::FuturesUnordered,
-};
-use librespot_core::spotify_id::SpotifyItemType;
-use librespot_core::spotify_uri::SpotifyResourceName;
-use parking_lot::Mutex;
-use symphonia::core::io::MediaSource;
-use tokio::sync::{mpsc, oneshot};
-
+#[cfg(feature = "passthrough-decoder")]
+use crate::decoder::PassthroughDecoder;
 use crate::{
     audio::{AudioDecrypt, AudioFetchParams, AudioFile, StreamLoaderController},
     audio_backend::Sink,
@@ -35,9 +27,16 @@ use crate::{
     metadata::audio::{AudioFileFormat, AudioFiles, AudioItem},
     mixer::VolumeGetter,
 };
-
-#[cfg(feature = "passthrough-decoder")]
-use crate::decoder::PassthroughDecoder;
+use futures_util::{
+    StreamExt, TryFutureExt, future, future::FusedFuture,
+    stream::futures_unordered::FuturesUnordered,
+};
+use librespot_core::spotify_id::SpotifyItemType;
+use librespot_core::spotify_uri::SpotifyResourceName;
+use librespot_metadata::track::Tracks;
+use parking_lot::Mutex;
+use symphonia::core::io::MediaSource;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::SAMPLES_PER_SECOND;
 
@@ -911,10 +910,12 @@ impl PlayerTrackLoader {
             None
         } else if !audio_item.files.is_empty() {
             Some(audio_item)
-        } else if let Some(alternatives) = &audio_item.alternatives {
-            let alternatives: FuturesUnordered<_> = alternatives
-                .iter()
-                .map(|alt_id| AudioItem::get_file(&self.session, *alt_id))
+        } else if let Some(alternatives) = audio_item.alternatives {
+            let Tracks(alternatives_vec) = alternatives; // required to make `into_iter` able to move
+
+            let alternatives: FuturesUnordered<_> = alternatives_vec
+                .into_iter()
+                .map(|alt_id| AudioItem::get_file(&self.session, alt_id))
                 .collect();
 
             alternatives
@@ -963,7 +964,10 @@ impl PlayerTrackLoader {
             SpotifyUri {
                 item_type: SpotifyItemType::Track,
                 name: SpotifyResourceName::Id(track_id),
-            } => self.load_remote_track(track_id, position_ms).await,
+            } => {
+                self.load_remote_track(track_uri, track_id, position_ms)
+                    .await
+            }
             _ => {
                 error!("Cannot handle load of track with URI: <{track_uri:?}>",);
                 None
@@ -973,16 +977,17 @@ impl PlayerTrackLoader {
 
     async fn load_remote_track(
         &self,
+        track_uri: SpotifyUri,
         track_id: SpotifyId,
         position_ms: u32,
     ) -> Option<PlayerLoadedTrackData> {
-        let audio_item = match AudioItem::get_file(&self.session, track_id).await {
+        let audio_item = match AudioItem::get_file(&self.session, track_uri).await {
             Ok(audio) => match self.find_available_alternative(audio).await {
                 Some(audio) => audio,
                 None => {
                     warn!(
-                        "<{}> is not available",
-                        track_id.to_uri().unwrap_or_default()
+                        "spotify:track:<{}> is not available",
+                        track_id.to_base62().unwrap_or_default()
                     );
                     return None;
                 }

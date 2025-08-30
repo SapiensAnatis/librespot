@@ -28,7 +28,7 @@ impl EventHandler {
                                 env_vars.insert("PLAY_REQUEST_ID", play_request_id.to_string());
                             }
                             PlayerEvent::TrackChanged { audio_item } => {
-                                match audio_item.track_id.to_base62() {
+                                match audio_item.track_id.to_name() {
                                     Err(e) => {
                                         warn!("PlayerEvent::TrackChanged: Invalid track id: {e}")
                                     }
