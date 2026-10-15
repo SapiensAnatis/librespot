@@ -52,6 +52,9 @@ pub struct PulseAudioSink {
     app_name: String,
     stream_desc: String,
     format: AudioFormat,
+    /// The rate the stream opens at. It follows the playing track, so a
+    /// stream reopened after a pause keeps a local file's own rate.
+    sample_rate: u32,
 }
 
 impl Open for PulseAudioSink {
@@ -74,6 +77,7 @@ impl Open for PulseAudioSink {
             app_name,
             stream_desc,
             format: actual_format,
+            sample_rate: SAMPLE_RATE,
         }
     }
 }
@@ -94,7 +98,7 @@ impl Sink for PulseAudioSink {
             let sample_spec = pulse::sample::Spec {
                 format: pulse_format,
                 channels: NUM_CHANNELS,
-                rate: SAMPLE_RATE,
+                rate: self.sample_rate,
             };
 
             if !sample_spec.is_valid() {
@@ -102,7 +106,7 @@ impl Sink for PulseAudioSink {
                     pulse_format,
                     format: self.format,
                     channels: NUM_CHANNELS,
-                    rate: SAMPLE_RATE,
+                    rate: self.sample_rate,
                 };
 
                 return Err(SinkError::from(pulse_error));
@@ -133,8 +137,28 @@ impl Sink for PulseAudioSink {
         Ok(())
     }
 
-    fn update_sample_rate(&mut self, _new_sample_rate: u32) -> SinkResult<()> {
-        Err(SinkError::SampleRateChangeNotSupported)
+    fn update_sample_rate(&mut self, new_sample_rate: u32) -> SinkResult<()> {
+        if new_sample_rate == self.sample_rate {
+            return Ok(());
+        }
+
+        // A stream's rate is fixed when it opens: play out what the previous
+        // track queued, then open a new stream at the new rate.
+        let was_running = self.sink.is_some();
+        if was_running {
+            self.stop()?;
+        }
+
+        let previous_sample_rate = std::mem::replace(&mut self.sample_rate, new_sample_rate);
+
+        if was_running && let Err(e) = self.start() {
+            // The player keeps its old rate when this fails, so the next
+            // start must open at that rate too.
+            self.sample_rate = previous_sample_rate;
+            return Err(e);
+        }
+
+        Ok(())
     }
 
     sink_as_bytes!();
