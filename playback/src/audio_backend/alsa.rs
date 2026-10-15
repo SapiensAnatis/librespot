@@ -98,6 +98,9 @@ pub struct AlsaSink {
     format: AudioFormat,
     device: String,
     period_buffer: Vec<u8>,
+    /// The rate the device was last opened at, so a device reopened after a
+    /// pause keeps the playing track's rate instead of going back to 44.1 kHz.
+    sample_rate: u32,
 }
 
 fn list_compatible_devices() -> SinkResult<()> {
@@ -410,6 +413,7 @@ impl Open for AlsaSink {
             format,
             device: name,
             period_buffer: vec![],
+            sample_rate: SAMPLE_RATE,
         }
     }
 }
@@ -417,7 +421,7 @@ impl Open for AlsaSink {
 impl Sink for AlsaSink {
     fn start(&mut self) -> SinkResult<()> {
         if self.pcm.is_none() {
-            self.start_internal(SAMPLE_RATE)?;
+            self.start_internal(self.sample_rate)?;
         }
 
         Ok(())
@@ -441,6 +445,7 @@ impl Sink for AlsaSink {
     fn update_sample_rate(&mut self, new_sample_rate: u32) -> SinkResult<()> {
         self.stop()?;
         self.start_internal(new_sample_rate)?;
+        self.sample_rate = new_sample_rate;
 
         Ok(())
     }
